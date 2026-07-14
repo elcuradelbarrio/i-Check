@@ -19,20 +19,39 @@
                 <p class="text-center text-gray-600 mb-8">Detector de IA y Plagio</p>
                 
                 <div id="auth-form">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium mb-2">Email</label>
-                        <input id="email" type="email" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="tu@email.com">
+                    <div id="login-form">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">Email</label>
+                            <input id="email" type="email" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="tu@email.com">
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium mb-2">Contraseña</label>
+                            <input id="password" type="password" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="••••••••">
+                        </div>
+                        <button onclick="login()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">
+                            Iniciar Sesión
+                        </button>
+                        <button onclick="toggleSignup()" class="w-full mt-2 text-blue-600 font-semibold hover:underline">
+                            ¿Sin cuenta? Registrate aquí
+                        </button>
                     </div>
-                    <div class="mb-6">
-                        <label class="block text-sm font-medium mb-2">Contraseña</label>
-                        <input id="password" type="password" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+
+                    <div id="signup-form" class="hidden">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">Email</label>
+                            <input id="signup-email" type="email" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="tu@email.com">
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium mb-2">Contraseña</label>
+                            <input id="signup-password" type="password" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="••••••••">
+                        </div>
+                        <button onclick="signup()" class="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700">
+                            Crear Cuenta
+                        </button>
+                        <button onclick="toggleSignup()" class="w-full mt-2 text-gray-600 font-semibold hover:underline">
+                            Volver a iniciar sesión
+                        </button>
                     </div>
-                    <button onclick="login()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">
-                        Iniciar Sesión
-                    </button>
-                    <button onclick="toggleSignup()" class="w-full mt-2 text-blue-600 font-semibold hover:underline">
-                        ¿Sin cuenta? Registrate
-                    </button>
                 </div>
             </div>
         </div>
@@ -102,8 +121,9 @@
     </div>
 
     <script>
-        const API_URL = "http://localhost:8000/api/v1";
+        const API_URL = "https://i-check-production.up.railway.app/api/v1";
         let token = localStorage.getItem("token");
+        let isSignupMode = false;
 
         if (token) {
             showDashboard();
@@ -113,6 +133,11 @@
             const email = document.getElementById("email").value;
             const password = document.getElementById("password").value;
 
+            if (!email || !password) {
+                alert("Por favor completa todos los campos");
+                return;
+            }
+
             try {
                 const res = await fetch(`${API_URL}/auth/login`, {
                     method: "POST",
@@ -121,7 +146,39 @@
                 });
 
                 if (!res.ok) throw new Error("Credenciales inválidas");
-                
+
+                const data = await res.json();
+                localStorage.setItem("token", data.access_token);
+                token = data.access_token;
+                showDashboard();
+            } catch (e) {
+                alert("Error: " + e.message);
+            }
+        }
+
+        async function signup() {
+            const email = document.getElementById("signup-email").value;
+            const password = document.getElementById("signup-password").value;
+
+            if (!email || !password) {
+                alert("Por favor completa todos los campos");
+                return;
+            }
+
+            if (password.length < 6) {
+                alert("La contraseña debe tener al menos 6 caracteres");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/register`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (!res.ok) throw new Error("Error al crear cuenta");
+
                 const data = await res.json();
                 localStorage.setItem("token", data.access_token);
                 token = data.access_token;
@@ -199,7 +256,17 @@
         }
 
         function toggleSignup() {
-            alert("Registrate con el mismo formulario (actualmente solo login)");
+            isSignupMode = !isSignupMode;
+            const loginForm = document.getElementById("login-form");
+            const signupForm = document.getElementById("signup-form");
+
+            if (isSignupMode) {
+                loginForm.classList.add("hidden");
+                signupForm.classList.remove("hidden");
+            } else {
+                loginForm.classList.remove("hidden");
+                signupForm.classList.add("hidden");
+            }
         }
     </script>
 </body>
