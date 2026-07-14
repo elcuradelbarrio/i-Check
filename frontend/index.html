@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>i-Check - Detector de IA y Plagio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div id="app">
+        <!-- Auth Section -->
+        <div id="auth-section" class="min-h-screen flex items-center justify-center px-4">
+            <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+                <h1 class="text-4xl font-bold text-center mb-2">i-Check</h1>
+                <p class="text-center text-gray-600 mb-8">Detector de IA y Plagio</p>
+                
+                <div id="auth-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Email</label>
+                        <input id="email" type="email" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="tu@email.com">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium mb-2">Contraseña</label>
+                        <input id="password" type="password" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button onclick="login()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">
+                        Iniciar Sesión
+                    </button>
+                    <button onclick="toggleSignup()" class="w-full mt-2 text-blue-600 font-semibold hover:underline">
+                        ¿Sin cuenta? Registrate
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="hidden min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+            <nav class="bg-white shadow">
+                <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+                    <h1 class="text-2xl font-bold">i-Check</h1>
+                    <button onclick="logout()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                        Cerrar Sesión
+                    </button>
+                </div>
+            </nav>
+
+            <div class="max-w-6xl mx-auto p-4">
+                <!-- Upload Section -->
+                <div class="bg-white rounded-lg shadow-lg p-8 mb-8">
+                    <h2 class="text-2xl font-bold mb-6">Analizar Documento</h2>
+                    
+                    <div id="upload-area" class="border-2 border-dashed border-blue-400 rounded-lg p-8 text-center cursor-pointer hover:bg-blue-50">
+                        <input id="file-input" type="file" class="hidden" onchange="handleFileUpload(event)">
+                        <div onclick="document.getElementById('file-input').click()">
+                            <p class="text-xl font-semibold mb-2">📁 Clic para subir archivo</p>
+                            <p class="text-gray-600">PDF, DOCX, TXT - Máx 10MB</p>
+                        </div>
+                    </div>
+
+                    <div id="file-status" class="mt-4"></div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results-section" class="hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- IA Detection -->
+                        <div class="bg-white rounded-lg shadow-lg p-8">
+                            <h3 class="text-xl font-bold mb-4">Detección de IA</h3>
+                            <div class="text-center">
+                                <div id="ai-percentage" class="text-5xl font-bold text-red-600 mb-2">--</div>
+                                <div class="w-full bg-gray-200 rounded-full h-4 mb-4">
+                                    <div id="ai-bar" class="bg-red-600 h-4 rounded-full" style="width: 0%"></div>
+                                </div>
+                                <p class="text-gray-600" id="ai-label">Analizando...</p>
+                            </div>
+                        </div>
+
+                        <!-- Plagiarism Detection -->
+                        <div class="bg-white rounded-lg shadow-lg p-8">
+                            <h3 class="text-xl font-bold mb-4">Detección de Plagio</h3>
+                            <div class="text-center">
+                                <div id="plagiarism-percentage" class="text-5xl font-bold text-orange-600 mb-2">--</div>
+                                <div class="w-full bg-gray-200 rounded-full h-4 mb-4">
+                                    <div id="plagiarism-bar" class="bg-orange-600 h-4 rounded-full" style="width: 0%"></div>
+                                </div>
+                                <p class="text-gray-600" id="plagiarism-label">Analizando...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-lg p-8 mt-6">
+                        <h3 class="text-xl font-bold mb-4">Documento Analizado</h3>
+                        <p id="doc-name" class="text-gray-700"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000/api/v1";
+        let token = localStorage.getItem("token");
+
+        if (token) {
+            showDashboard();
+        }
+
+        async function login() {
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+
+            try {
+                const res = await fetch(`${API_URL}/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (!res.ok) throw new Error("Credenciales inválidas");
+                
+                const data = await res.json();
+                localStorage.setItem("token", data.access_token);
+                token = data.access_token;
+                showDashboard();
+            } catch (e) {
+                alert("Error: " + e.message);
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem("token");
+            token = null;
+            document.getElementById("auth-section").classList.remove("hidden");
+            document.getElementById("dashboard-section").classList.add("hidden");
+            document.getElementById("results-section").classList.add("hidden");
+        }
+
+        function showDashboard() {
+            document.getElementById("auth-section").classList.add("hidden");
+            document.getElementById("dashboard-section").classList.remove("hidden");
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                document.getElementById("file-status").innerHTML = '<p class="text-blue-600">📤 Subiendo...</p>';
+
+                const res = await fetch(`${API_URL}/documents/upload?token=${token}`, {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!res.ok) throw new Error("Error al subir");
+                const doc = await res.json();
+
+                await analyzeDocument(doc.id, file.name);
+            } catch (e) {
+                document.getElementById("file-status").innerHTML = '<p class="text-red-600">❌ Error: ' + e.message + '</p>';
+            }
+        }
+
+        async function analyzeDocument(docId, filename) {
+            try {
+                document.getElementById("file-status").innerHTML = '<p class="text-blue-600">🔍 Analizando documento...</p>';
+                document.getElementById("results-section").classList.remove("hidden");
+
+                const res = await fetch(`${API_URL}/analyze?document_id=${docId}&token=${token}`, {
+                    method: "POST"
+                });
+
+                if (!res.ok) throw new Error("Error en análisis");
+                const result = await res.json();
+
+                // Update UI
+                document.getElementById("ai-percentage").textContent = Math.round(result.ai_percentage) + "%";
+                document.getElementById("ai-bar").style.width = result.ai_percentage + "%";
+                document.getElementById("ai-label").textContent = 
+                    result.ai_percentage > 50 ? "⚠️ Probable contenido IA" : "✅ Parece original";
+
+                document.getElementById("plagiarism-percentage").textContent = Math.round(result.plagiarism_percentage) + "%";
+                document.getElementById("plagiarism-bar").style.width = result.plagiarism_percentage + "%";
+                document.getElementById("plagiarism-label").textContent = 
+                    result.plagiarism_percentage > 30 ? "⚠️ Plagio detectado" : "✅ Contenido único";
+
+                document.getElementById("doc-name").textContent = "📄 " + filename;
+                document.getElementById("file-status").innerHTML = '<p class="text-green-600">✅ Análisis completado</p>';
+            } catch (e) {
+                document.getElementById("file-status").innerHTML = '<p class="text-red-600">❌ Error: ' + e.message + '</p>';
+            }
+        }
+
+        function toggleSignup() {
+            alert("Registrate con el mismo formulario (actualmente solo login)");
+        }
+    </script>
+</body>
+</html>
